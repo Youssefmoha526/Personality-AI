@@ -1,0 +1,258 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile       Profile?
+  sessions      AssessmentSession[]
+  cognitiveTests CognitiveTest[]
+  aiConversations AiConversation[]
+  achievements  UserAchievement[]
+  preferences   UserPreference?
+  accounts      Account[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String
+  age         Int?
+  nationality String?
+  language    String   @default("en")
+  statedGoal  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AssessmentSession {
+  id              String   @id @default(cuid())
+  userId          String?
+  guestToken      String?
+  language        String
+  statedGoal      String?
+  displayName     String?
+  age             Int?
+  nationality     String?
+  status          String   @default("in_progress")
+  currentIndex    Int      @default(0)
+  maxQuestions    Int      @default(20)
+  answeredIds     String   @default("[]")
+  similarityGroups String  @default("[]")
+  scenarioTypes   String   @default("[]")
+  constructEvidence String @default("{}")
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  updatedAt       DateTime @updatedAt
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  answers Answer[]
+  result  PersonalityResult?
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  sessionId  String
+  questionId String
+  optionIndex Int
+  answeredAt DateTime @default(now())
+
+  session AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, questionId])
+  @@index([sessionId])
+}
+
+model PersonalityResult {
+  id              String   @id @default(cuid())
+  sessionId       String   @unique
+  userId          String?
+  dimensions      String
+  confidence      String
+  summary         String
+  strengths       String
+  growthAreas     String
+  distinctive     String
+  reportSections  String
+  overallConfidence Float
+  createdAt       DateTime @default(now())
+
+  session AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AssessmentHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  resultId    String
+  dimensions  String
+  confidence  String
+  takenAt     DateTime @default(now())
+
+  @@index([userId])
+}
+
+model CognitiveTest {
+  id           String   @id @default(cuid())
+  userId       String?
+  guestToken   String?
+  language     String
+  status       String   @default("in_progress")
+  questionIds  String
+  answeredIds  String   @default("[]")
+  score        Float?
+  categoryScores String?
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+  updatedAt    DateTime @updatedAt
+
+  user    User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  answers CognitiveAnswer[]
+}
+
+model CognitiveAnswer {
+  id         String   @id @default(cuid())
+  testId     String
+  questionId String
+  optionIndex Int
+  isCorrect  Boolean
+  answeredAt DateTime @default(now())
+
+  test CognitiveTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@unique([testId, questionId])
+}
+
+model AiConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  language  String
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AiMessage[]
+}
+
+model AiMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+  createdAt      DateTime @default(now())
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+model Achievement {
+  id          String @id @default(cuid())
+  key         String @unique
+  icon        String
+  titleEn     String
+  titleAr     String
+  descriptionEn String
+  descriptionAr String
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  earnedAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+}
+
+model UserPreference {
+  id                String  @id @default(cuid())
+  userId            String  @unique
+  saveChatHistory   Boolean @default(true)
+  dailyInsightEnabled Boolean @default(true)
+  reducedMotion     Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model QuestionMeta {
+  id                String  @id
+  primaryConstruct  String
+  secondaryConstructs String
+  scenarioType      String
+  difficulty        Int
+  reverseScored     Boolean @default(false)
+  sourceBasis       String
+  questionVersion   Int     @default(1)
+  estimatedTime     Int     @default(30)
+  ageAppropriate    Int     @default(13)
+  similarityGroup   String
+  active            Boolean @default(true)
+  constructsMeasured String
+  weights           String
+}
+
+model QuestionTranslation {
+  id         String @id @default(cuid())
+  questionId String
+  language   String
+  text       String
+  options    String
+
+  @@unique([questionId, language])
+}
+
+model CognitiveQuestionMeta {
+  id           String @id
+  category     String
+  difficulty   Int
+  correctIndex Int
+  explanationEn String
+  explanationAr String
+  active       Boolean @default(true)
+}
+
+model CognitiveQuestionTranslation {
+  id         String @id @default(cuid())
+  questionId String
+  language   String
+  text       String
+  options    String
+
+  @@unique([questionId, language])
+}
